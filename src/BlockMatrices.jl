@@ -26,6 +26,7 @@ type Block <: AbstractMatrix{Real}
 end
 
 function Base.size(A::Block)
+  if length(A.Blocks) == 0; return (0,0); end
   n = sum([size(B,1) for B in A.Blocks])
   return (n,n)
 end
