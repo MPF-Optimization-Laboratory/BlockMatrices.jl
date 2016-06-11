@@ -128,18 +128,13 @@ function Base.sparse(A::Block)
   I₊, J₊, V₊ = Int[], Int[], Float64[]
   for (I,Blk) = zip(block_idx(A), A.Blocks)
     Aᵢ = sparse(Blk)
-    # for i = 1:size(Aᵢ,1), j = 1:size(Aᵢ,2)
-    #   push!(I₊, I[i])
-    #   push!(J₊, I[j])
-    #   push!(V₊, Aᵢ[i,j])
-    # end
     rows = rowvals(Aᵢ)
     vals = nonzeros(Aᵢ)
     m, n = size(Aᵢ)
     for i = 1:n
        for j in nzrange(Aᵢ, i)
           row = rows[j]; val = vals[j]
-          push!(I₊, i); push!(J₊, row); push!(V₊, val)
+          push!(I₊, i + I[1] - 1); push!(J₊, row + I[1] - 1); push!(V₊, val)
        end
     end
   end
