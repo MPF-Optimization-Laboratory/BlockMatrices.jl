@@ -22,6 +22,7 @@ type Block <: AbstractMatrix{Real}
   Block(size::Int) = new(Array(Any,size), spzeros(0,0))
   Block(Blk::Array{Any}) = new(Blk, spzeros(0,0))
   Block(Blk::Array) = new(convert(Array{Any}, Blk), spzeros(0,0))
+  Block(Blk::Array{Any}, mcache::SparseMatrixCSC) = new(Blk, mcache)
 
 end
 
@@ -134,7 +135,7 @@ function Base.sparse(A::Block)
     for i = 1:n
        for j in nzrange(Aᵢ, i)
           row = rows[j]; val = vals[j]
-          push!(I₊, i + I[1] - 1); push!(J₊, row + I[1] - 1); push!(V₊, val)
+          push!(J₊, i + I[1] - 1); push!(I₊, row + I[1] - 1); push!(V₊, val)
        end
     end
   end
@@ -173,14 +174,30 @@ function *(A::Block, X::Array{Float64,2})
 
 end
 
-Base.copy(A::Block)        = Block(copy(A.Blocks))
-Base.deepcopy(A::Block)    = Block(deepcopy(A.Blocks))
+function Base.Ac_mul_B(A::Block, X::Array{Float64,2})
+
+  if length(A.mcache) != 0; return A.mcache*X; end
+  Y = similar(X)
+  i = 1
+  for I = Task( () -> blockIter(A) )
+    XI = sub(X,I,:)
+    Y[I,:] = Ac_mul_B(A.Blocks[i],XI)
+    i += 1;
+  end
+  return Y
+
+end
+
+Base.copy(A::Block)        = Block(copy(A.Blocks), copy(A.mcache))
+Base.deepcopy(A::Block)    = Block(deepcopy(A.Blocks), copy(A.mcache))
 +(A::Block, B::Block)      = Block(A.Blocks + B.Blocks)
 -(A::Block, B::Block)      = A + (-B)
 Base.inv(A::Block)         = broadcastf(inv, A)
 -(A::Block)                = broadcastf(-, A)
+Base.ctranspose(A::Block)  = broadcastf(ctranspose, A)
 *(A::Block, B::Block)      = broadcastf(*, A, B)
 Base.norm(A::Block)        = reduce(norm, A)
+Base.Ac_mul_B(A::Block, B::Block) = broadcastf(Ac_mul_B, A, B)
 
 ViewTypes = Union{SubArray}
 VectorTypes = Union{Matrix, Vector, ViewTypes}
@@ -215,5 +232,6 @@ end
 function show(io::IO, M::Block)
     print(io, "BLock")
 end
+
 
 end
